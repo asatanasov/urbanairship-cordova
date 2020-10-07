@@ -109,8 +109,8 @@ public class PluginManager {
      * @param notificationId The notification ID.
      * @param pushMessage    The push message.
      */
-    public void pushReceived(Integer notificationId, PushMessage pushMessage) {
-        notifyListener(new PushEvent(notificationId, pushMessage));
+    public void pushReceived(Integer notificationId, PushMessage pushMessage, boolean isInForeground) {
+        notifyListener(new PushEvent(notificationId, pushMessage, isInForeground));
     }
 
     /**

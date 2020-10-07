@@ -25,14 +25,17 @@
 
 package com.urbanairship.cordova;
 
+import android.app.ActivityManager;
 import android.content.Context;
 import android.support.annotation.NonNull;
 import android.util.Log;
 
+import com.adobe.phonegap.push.PushPlugin;
 import com.urbanairship.AirshipReceiver;
 import com.urbanairship.UAirship;
 import com.urbanairship.push.PushMessage;
 
+import java.util.List;
 /**
  * Intent receiver for Urban Airship channel and push events.
  */
@@ -64,9 +67,10 @@ public class CordovaAirshipReceiver extends AirshipReceiver {
     protected void onPushReceived(@NonNull Context context, @NonNull PushMessage message, boolean notificationPosted) {
         Log.i(TAG, "Received push message. Alert: " + message.getAlert() + ". posted notification: " + notificationPosted);
 
+        boolean isForeground = PushPlugin.isInForeground();
 
         if (!notificationPosted) {
-            PluginManager.shared(context).pushReceived(null, message);
+            PluginManager.shared(context).pushReceived(null, message, isForeground);
         }
     }
 
@@ -74,7 +78,9 @@ public class CordovaAirshipReceiver extends AirshipReceiver {
     protected void onNotificationPosted(@NonNull Context context, @NonNull NotificationInfo notificationInfo) {
         Log.i(TAG, "Notification posted. Alert: " + notificationInfo.getMessage().getAlert() + ". NotificationId: " + notificationInfo.getNotificationId());
 
-        PluginManager.shared(context).pushReceived(notificationInfo.getNotificationId(), notificationInfo.getMessage());
+        boolean isForeground = PushPlugin.isInForeground();
+
+        PluginManager.shared(context).pushReceived(notificationInfo.getNotificationId(), notificationInfo.getMessage(), isForeground);
     }
 
     @Override
@@ -83,8 +89,7 @@ public class CordovaAirshipReceiver extends AirshipReceiver {
 
         PluginManager.shared(context).notificationOpened(notificationInfo);
 
-        // Return false here to allow Urban Airship to auto launch the launcher activity
-        return false;
+        return shouldLaunchActivity(context);
     }
 
     @Override
@@ -93,8 +98,33 @@ public class CordovaAirshipReceiver extends AirshipReceiver {
 
         PluginManager.shared(context).notificationOpened(notificationInfo, actionButtonInfo);
 
-        // Return false here to allow Urban Airship to auto launch the launcher
-        // activity for foreground notification action buttons
+        return shouldLaunchActivity(context);
+    }
+
+    private boolean shouldLaunchActivity(Context context)
+    {
+        if(isAppOnForeground(context)) {
+            // Return true here to allow Urban Airship not to auto launch the launcher activity
+            return true;
+        }
+        else {
+            // Return false here to allow Urban Airship to auto launch the launcher activity
+            return false;
+        }
+    }
+
+    private boolean isAppOnForeground(Context context) {
+        ActivityManager activityManager = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+        List<ActivityManager.RunningAppProcessInfo> appProcesses = activityManager.getRunningAppProcesses();
+        if (appProcesses == null) {
+            return false;
+        }
+        final String packageName = context.getPackageName();
+        for (ActivityManager.RunningAppProcessInfo appProcess : appProcesses) {
+            if (appProcess.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND && appProcess.processName.equals(packageName)) {
+                return true;
+            }
+        }
         return false;
     }
 }
